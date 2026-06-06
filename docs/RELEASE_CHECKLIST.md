@@ -33,6 +33,8 @@
 - [ ] Whisper Small descarga, transcribe y queda en caché.
 - [ ] Reparar modelos elimina una caché dañada y permite descargar nuevamente.
 - [ ] Historial, diccionario y preferencias persisten tras reiniciar.
+- [ ] Una instalación limpia no contiene historial de desarrollo o prerelease.
+- [ ] La X pregunta la primera vez; ocultar a bandeja, salir y recordar elección funcionan.
 - [ ] Emails, URLs, muletillas, silencios y textos largos cumplen aceptación.
 
 ## Publicación

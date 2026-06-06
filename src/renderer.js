@@ -2,19 +2,25 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const { cleanTranscription } = require("./text-cleanup.cjs");
 const { resolveWhisperProfile } = require("./whisper-profiles.cjs");
+const { initializeProductionProfile } = require("./data-migrations.cjs");
 
 const voiceAPI = window.voiceAPI || {
+  runtime: { isPackaged: false },
   copy: async (text) => navigator.clipboard?.writeText(text),
   paste: async (text) => navigator.clipboard?.writeText(text),
   transcribe: async () => { throw new Error("La transcripción requiere la aplicación de escritorio."); },
   overlay: async () => {},
   diagnostics: async () => ({ platform: "browser", version: "preview" }),
   clearModels: async () => true,
+  getCloseBehavior: async () => "ask",
+  setCloseBehavior: async () => "ask",
   onShortcutToggle: () => {},
   onReprocess: () => {},
   onShortcutError: () => {},
   onModelProgress: () => {}
 };
+
+initializeProductionProfile(localStorage, voiceAPI.runtime.isPackaged);
 
 const defaults = {
   language: "spanish",
@@ -65,6 +71,7 @@ const elements = {
   cleanupText: $("#cleanupText"),
   dictionaryEnabled: $("#dictionaryEnabled"),
   historyLimit: $("#historyLimit"),
+  closeBehavior: $("#closeBehavior"),
   guideVisual: $("#guideVisual"),
   guideCount: $("#guideCount"),
   guideTitle: $("#guideTitle"),
@@ -373,7 +380,7 @@ function renderGuide() {
   elements.guideNext.textContent = guideIndex === guideSlides.length - 1 ? "Listo" : "Siguiente →";
 }
 
-function hydrateSettings() {
+async function hydrateSettings() {
   const profile = resolveWhisperProfile(settings.whisperProfile);
   elements.language.value = settings.language;
   elements.whisperProfile.value = profile.id;
@@ -383,6 +390,7 @@ function hydrateSettings() {
   elements.cleanupText.checked = settings.cleanupText;
   elements.dictionaryEnabled.checked = settings.dictionaryEnabled;
   elements.historyLimit.value = String(settings.historyLimit);
+  elements.closeBehavior.value = await voiceAPI.getCloseBehavior();
 }
 
 function toggleRecording(source = "button") {
@@ -483,6 +491,10 @@ elements.repairModelsButton.addEventListener("click", async () => {
     showToast(`No fue posible reparar los modelos: ${error.message || error}`);
   }
 });
+elements.closeBehavior.addEventListener("change", async () => {
+  await voiceAPI.setCloseBehavior(elements.closeBehavior.value);
+  showToast("Comportamiento de cierre guardado.");
+});
 
 voiceAPI.onShortcutToggle(() => toggleRecording("shortcut"));
 voiceAPI.onReprocess(() => processAudio(lastAudio, "shortcut"));
@@ -495,7 +507,7 @@ voiceAPI.onModelProgress((progress) => {
 });
 
 createWaveform();
-hydrateSettings();
+hydrateSettings().catch(() => {});
 renderHistory();
 renderDictionary();
 renderGuide();

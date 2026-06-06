@@ -19,6 +19,9 @@ Estado actual: release candidate `1.0.0` funcional para Windows x64. Todavía no
 - Política de privacidad, términos, licencia y avisos de terceros.
 - Estrategia de actualización manual y rollback documentada.
 - CI de Windows para validar y construir artefactos.
+- Perfil de desarrollo aislado del perfil instalado y limpieza única del historial prerelease.
+- Cierre a bandeja con elección recordada, configuración visible y prueba empaquetada.
+- Workflow de firma pública que bloquea artefactos Authenticode inválidos.
 
 ## Bloqueadores Antes Del Lanzamiento Estable
 
@@ -41,6 +44,8 @@ npm run release:win
 npm run release:verify
 npm run release:test-models
 npm run release:test-installer
+npm run release:test-tray
+npm run release:verify-signature
 npm audit --omit=dev
 ```
 

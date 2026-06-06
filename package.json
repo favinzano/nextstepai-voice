@@ -10,14 +10,17 @@
     "build:icons": "node scripts/build-icons.cjs",
     "start": "electron .",
     "dev": "npm run build && electron .",
-    "test": "npm run build && node --check src/main.cjs && node --check src/preload.cjs && node src/text-cleanup.test.cjs && node src/whisper-profiles.test.cjs && node src/model-storage.test.cjs",
-    "test:production": "node --check src/main.cjs && node --check src/preload.cjs && node src/text-cleanup.test.cjs && node src/whisper-profiles.test.cjs && node src/model-storage.test.cjs && node src/transcription-smoke.test.cjs",
+    "test": "npm run build && node --check src/main.cjs && node --check src/preload.cjs && node src/text-cleanup.test.cjs && node src/whisper-profiles.test.cjs && node src/model-storage.test.cjs && node src/app-preferences.test.cjs && node src/data-migrations.test.cjs",
+    "test:production": "node --check src/main.cjs && node --check src/preload.cjs && node src/text-cleanup.test.cjs && node src/whisper-profiles.test.cjs && node src/model-storage.test.cjs && node src/app-preferences.test.cjs && node src/data-migrations.test.cjs && node src/transcription-smoke.test.cjs",
     "test:models": "node src/whisper-models.smoke.cjs",
     "release:win": "npm run build && npm run build:icons && electron-builder --win nsis",
+    "release:signed": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release-signed.ps1",
     "release:dir": "npm run build && electron-builder --dir --win",
     "release:verify": "node scripts/verify-release.cjs",
     "release:test-models": "node scripts/verify-packaged-models.cjs",
-    "release:test-installer": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-installer.ps1"
+    "release:test-installer": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-installer.ps1",
+    "release:test-tray": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-tray.ps1",
+    "release:verify-signature": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-signature.ps1"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.7.3"

@@ -1,31 +1,47 @@
-# Firma De Código Para Windows
+# Firma Authenticode Para Windows
 
-El release `1.0.0` no puede declararse firmado hasta disponer de un certificado Authenticode válido.
+NextStepAI Voice usará **Azure Artifact Signing Public Trust** (antes Trusted Signing). Microsoft lo recomienda para aplicaciones distribuidas fuera de Microsoft Store y Electron Builder lo integra de forma nativa.
 
-## Requisito
+## Paso externo obligatorio
 
-Adquirir un certificado de firma de código OV o EV emitido por una autoridad reconocida. EV ofrece mejor reputación inicial ante SmartScreen.
+La firma pública no puede generarse dentro del repositorio. El propietario debe:
 
-## Configuración Esperada
+1. Crear y validar una cuenta de Azure Artifact Signing con modelo `Public Trust`.
+2. Crear un perfil de certificado y una App Registration.
+3. Asignar a esa App Registration el rol `Trusted Signing Certificate Profile Signer`.
+4. Configurar en GitHub:
 
-Electron Builder puede utilizar variables seguras durante CI:
+Secrets:
 
-- `CSC_LINK`: certificado codificado o ubicación segura.
-- `CSC_KEY_PASSWORD`: contraseña del certificado.
+- `AZURE_TENANT_ID`
+- `AZURE_CLIENT_ID`
+- `AZURE_CLIENT_SECRET`
 
-Estas credenciales nunca deben almacenarse en Git.
+Variables:
 
-## Verificación
+- `AZURE_SIGNING_PUBLISHER_NAME`
+- `AZURE_SIGNING_ENDPOINT`
+- `AZURE_SIGNING_ACCOUNT_NAME`
+- `AZURE_SIGNING_PROFILE_NAME`
 
-Después de construir:
+Artifact Signing Public Trust está disponible para organizaciones de Estados Unidos, Canadá, Unión Europea y Reino Unido, y para desarrolladores individuales de Estados Unidos y Canadá.
+
+## Construcción firmada
+
+Localmente, con las mismas variables definidas:
 
 ```powershell
-Get-AuthenticodeSignature "release\NextStepAI-Voice-Setup-1.0.0-x64.exe"
-Get-AuthenticodeSignature "release\win-unpacked\NextStepAI Voice.exe"
+npm run release:signed
 ```
 
-Ambos resultados deben mostrar `Status: Valid`.
+En GitHub Actions, ejecutar manualmente el workflow `Signed Windows Release`.
 
-## Regla De Publicación
+El proceso firma el ejecutable y el instalador y después falla automáticamente si cualquiera no presenta `Status: Valid`.
 
-No etiquetar el release como estable para distribución pública mientras el instalador y ejecutable aparezcan como `NotSigned`.
+## Verificación independiente
+
+```powershell
+npm run release:verify-signature
+```
+
+No publicar un release estable mientras esta comprobación falle.

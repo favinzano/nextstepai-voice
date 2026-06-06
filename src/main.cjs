@@ -1,6 +1,7 @@
-const { app, BrowserWindow, clipboard, globalShortcut, ipcMain, session, screen } = require("electron");
+const { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, Menu, nativeImage, session, screen, Tray } = require("electron");
 const path = require("path");
 const { execFile } = require("child_process");
+const { getCloseBehavior, setCloseBehavior } = require("./app-preferences.cjs");
 const { resolveWhisperProfile } = require("./whisper-profiles.cjs");
 const {
   clearModelCache,
@@ -17,18 +18,92 @@ let transcriberPromise;
 let loadingProfile;
 let pasteTarget;
 let shortcutRecording = false;
+let tray;
+let isQuitting = false;
+let closeDialogOpen = false;
 
 app.setName("NextStepAI Voice");
+if (!app.isPackaged) {
+  app.setPath("userData", path.join(app.getPath("appData"), "NextStepAI Voice Development"));
+}
 if (process.platform === "win32") app.setAppUserModelId("com.nextstepai.voice");
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) app.quit();
 
 app.on("second-instance", () => {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
+  showMainWindow();
+});
+
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) createWindow();
   if (mainWindow.isMinimized()) mainWindow.restore();
   mainWindow.show();
   mainWindow.focus();
-});
+}
+
+function hideToTray() {
+  mainWindow?.hide();
+}
+
+function createTray() {
+  const trayImage = nativeImage.createFromPath(path.join(__dirname, "..", "assets", "app-icon-32.png"));
+  tray = new Tray(trayImage.resize({ width: 16, height: 16 }));
+  tray.setToolTip("NextStepAI Voice");
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: "Abrir NextStepAI Voice", click: showMainWindow },
+    { type: "separator" },
+    {
+      label: "Salir",
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  ]));
+  tray.on("double-click", showMainWindow);
+}
+
+async function handleWindowClose(event) {
+  if (isQuitting) return;
+  event.preventDefault();
+  if (closeDialogOpen) return;
+
+  const behavior = getCloseBehavior(app.getPath("userData"));
+  if (behavior === "tray") {
+    hideToTray();
+    return;
+  }
+  if (behavior === "exit") {
+    isQuitting = true;
+    app.quit();
+    return;
+  }
+
+  closeDialogOpen = true;
+  try {
+    const choice = await dialog.showMessageBox(mainWindow, {
+      type: "question",
+      title: "Cerrar NextStepAI Voice",
+      message: "¿Qué quieres hacer al cerrar la ventana?",
+      detail: "Ocultarla en la bandeja mantiene disponibles el dictado y los atajos globales.",
+      buttons: ["Ocultar en la bandeja", "Salir de NextStepAI Voice", "Cancelar"],
+      defaultId: 0,
+      cancelId: 2,
+      checkboxLabel: "Recordar mi elección",
+      checkboxChecked: false
+    });
+    if (choice.response === 2) return;
+    const selectedBehavior = choice.response === 0 ? "tray" : "exit";
+    if (choice.checkboxChecked) setCloseBehavior(app.getPath("userData"), selectedBehavior);
+    if (selectedBehavior === "tray") hideToTray();
+    else {
+      isQuitting = true;
+      app.quit();
+    }
+  } finally {
+    closeDialogOpen = false;
+  }
+}
 
 async function getTranscriber(profileId) {
   const profile = resolveWhisperProfile(profileId);
@@ -114,6 +189,7 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, "..", "index.html"));
+  mainWindow.on("close", handleWindowClose);
   mainWindow.on("closed", () => {
     mainWindow = null;
     if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.close();
@@ -276,6 +352,7 @@ app.whenReady().then(async () => {
 
   createWindow();
   createOverlayWindow();
+  createTray();
 
   const registered = globalShortcut.register("CommandOrControl+Shift+Space", async () => {
     if (!shortcutRecording) {
@@ -355,17 +432,22 @@ ipcMain.handle("app:diagnostics", async () => {
     modelCacheDir: cacheDir
   };
 });
+ipcMain.handle("app:get-close-behavior", () => getCloseBehavior(app.getPath("userData")));
+ipcMain.handle("app:set-close-behavior", (_event, behavior) => setCloseBehavior(app.getPath("userData"), behavior));
 
 ipcMain.handle("window:minimize", () => mainWindow?.minimize());
 ipcMain.handle("window:hide", () => mainWindow?.hide());
 
 app.on("activate", () => {
-  if (!mainWindow || mainWindow.isDestroyed()) createWindow();
+  showMainWindow();
   if (!overlayWindow || overlayWindow.isDestroyed()) createOverlayWindow();
 });
 
+app.on("before-quit", () => {
+  isQuitting = true;
+});
 app.on("will-quit", () => globalShortcut.unregisterAll());
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  if (process.platform !== "darwin" && isQuitting) app.quit();
 });

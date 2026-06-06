@@ -12,6 +12,8 @@ NextStepAI Voice `1.0.0` cumple la validación técnica automatizable disponible
 - 33 casos del pipeline de texto.
 - 7 casos de perfiles Whisper.
 - 5 casos de almacenamiento y reparación de modelos.
+- 5 casos de preferencias de aplicación.
+- 7 casos de migración y aislamiento de datos.
 - 3 casos reales de audio no verbal.
 - Whisper Base y Whisper Small ejecutados desde el paquete Windows.
 - Caché de modelos confirmada fuera del paquete, dentro de datos del usuario.
@@ -20,6 +22,9 @@ NextStepAI Voice `1.0.0` cumple la validación técnica automatizable disponible
 - Desinstalación silenciosa.
 - Eliminación de archivos de aplicación.
 - Preservación de datos de usuario tras desinstalar.
+- Perfil de desarrollo separado del perfil instalado.
+- Historial prerelease eliminado una sola vez sin eliminar ajustes ni diccionario.
+- Cierre a bandeja validado desde el ejecutable empaquetado.
 - Auditoría npm completa: 0 vulnerabilidades.
 - Checksum SHA-256 generado.
 
@@ -27,11 +32,11 @@ NextStepAI Voice `1.0.0` cumple la validación técnica automatizable disponible
 
 - `NextStepAI-Voice-Setup-1.0.0-x64.exe`
 - Tamaño aproximado: 128 MB, sin incluir modelos descargables.
-- SHA-256: `59cbed3becc5eba3f1142532c931984b685fa35ec25e7adf60b639e3e07439b9`
+- SHA-256: `cef74b484dfdf8ec464fad51f6d231d499a345ae7cce4bf6c8a89dc2fb0c72ed`
 
 ## Pendientes Externos
 
-1. Firma Authenticode. Estado actual: `NotSigned`.
+1. Completar la validación de identidad de Azure Artifact Signing y configurar credenciales. Estado verificable actual: `NotSigned`.
 2. Matriz de aceptación con voces humanas, acentos, micrófonos y ruido.
 3. Prueba independiente en Windows 11 y hardware adicional.
 4. Prueba real de actualización/rollback cuando exista un segundo instalador versionado.
