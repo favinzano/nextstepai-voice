@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <!--
+  ╔══════════════════════════════════════════════════════╗
+  ║  FELIPE AVINZANO — ISOTIPO FINAL                     ║
+  ║  Concepto: La Incisión (filled/outlined)             ║
+  ║  Dos planos en contacto. Fill transparente.          ║
+  ╠══════════════════════════════════════════════════════╣
+  ║  CUADRADO 1 — FILLED ("lo que existe")               ║
+  ║    Dimensiones : 160 × 160 px                        ║
+  ║    Fill        : #0D1B2A (Deep Ink)                  ║
+  ║    Stroke      : ninguno                             ║
+  ║    Rotación    : −4° sobre su centro                 ║
+  ║    Centro      : 185, 200                            ║
+  ║                                                      ║
+  ║  CUADRADO 2 — OUTLINED ("lo que llega")              ║
+  ║    Dimensiones : 160 × 160 px                        ║
+  ║    Fill        : NONE (transparente)                 ║
+  ║    Stroke      : #0D1B2A, 5.5 px                     ║
+  ║    Rotación    : +4° sobre su centro                 ║
+  ║    Centro      : 215, 200                            ║
+  ║                                                      ║
+  ║  SISTEMA                                             ║
+  ║    Delta rotación : 8° (contra-rotación simétrica)   ║
+  ║    Overlap        : ~25% del área de cada cuadrado   ║
+  ║    Overlap fill   : NUNCA semitransparente           ║
+  ║    Fondo          : transparente                     ║
+  ╚══════════════════════════════════════════════════════╝
+  -->
+
+  <!-- CUADRADO 1: FILLED — "lo que existe" (la operación) -->
+  <rect
+    x="105" y="120"
+    width="160" height="160"
+    fill="#0D1B2A"
+    stroke="none"
+    transform="rotate(-4, 185, 200)"
+  />
+
+  <!-- CUADRADO 2: OUTLINED — "lo que llega" (el sistema de IA) -->
+  <!-- fill="none" es crítico: transparente, no blanco -->
+  <rect
+    x="135" y="120"
+    width="160" height="160"
+    fill="none"
+    stroke="#0D1B2A"
+    stroke-width="5.5"
+    transform="rotate(4, 215, 200)"
+  />
+
+</svg>

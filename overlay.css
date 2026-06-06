@@ -1,0 +1,24 @@
+@font-face { font-family: Geist; src: url("assets/fonts/Geist-Variable.woff2") format("woff2"); font-style: normal; font-weight: 100 900; }
+@font-face { font-family: Geist; src: url("assets/fonts/Geist-Italic-Variable.woff2") format("woff2"); font-style: italic; font-weight: 100 900; }
+
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; font-family: Geist, sans-serif; }
+.overlay { position: absolute; inset: 6px; padding: 15px 17px 13px; overflow: hidden; color: #f4f1eb; background: rgba(13, 27, 42, .97); border: 1px solid rgba(244, 241, 235, .15); box-shadow: 0 14px 34px rgba(13, 27, 42, .28); }
+.overlay::after { content: ""; position: absolute; width: 90px; height: 90px; right: -52px; top: -39px; border: 1px solid rgba(244, 241, 235, .08); transform: rotate(4deg); }
+.brand-row, .message-row { display: flex; align-items: center; }
+.brand-row { gap: 8px; height: 18px; }
+.brand-row strong { font-size: 9px; font-weight: 450; letter-spacing: -.02em; }.brand-row strong b { color: #83a9c8; font-weight: 700; }
+.status-dot { width: 5px; height: 5px; margin-left: auto; background: #b66d45; }
+.incision { position: relative; display: block; width: 17px; height: 17px; }.incision i { position: absolute; left: 1px; top: 2px; width: 11px; height: 11px; background: #f4f1eb; transform: rotate(-4deg); }.incision i + i { left: 4px; top: 3px; border: 1px solid #f4f1eb; background: transparent; transform: rotate(4deg); }
+.signal { height: 20px; display: flex; align-items: center; gap: 3px; margin: 12px 0 9px; }
+.signal i { width: 2px; height: var(--height); background: #b66d45; animation: wave .7s var(--delay) ease-in-out infinite alternate; }
+@keyframes wave { to { height: 3px; opacity: .32; } }
+.message-row { justify-content: space-between; padding-top: 9px; border-top: 1px solid rgba(244, 241, 235, .12); color: rgba(244, 241, 235, .55); font-size: 7px; letter-spacing: .02em; }
+.message-row b { color: rgba(244, 241, 235, .78); font-size: 7px; font-variant-numeric: tabular-nums; }
+.overlay[data-status="processing"] .signal i { background: #83a9c8; animation: process .8s var(--delay) ease-in-out infinite alternate; }
+.overlay[data-status="processing"] .status-dot { background: #83a9c8; }
+.overlay[data-status="success"] .signal i { background: #f4f1eb; animation: success .45s ease forwards; }
+.overlay[data-status="success"] .status-dot { background: #f4f1eb; }
+.overlay[data-status="error"] .signal i, .overlay[data-status="error"] .status-dot { background: #d17d61; }
+@keyframes process { to { opacity: .15; transform: translateX(2px); } }
+@keyframes success { to { height: 2px; opacity: .18; } }

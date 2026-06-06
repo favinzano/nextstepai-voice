@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self';" />
+    <title>NextStepAI Voice</title>
+    <link rel="stylesheet" href="overlay.css" />
+  </head>
+  <body>
+    <main class="overlay" data-status="recording" id="overlay">
+      <div class="brand-row">
+        <span class="incision"><i></i><i></i></span>
+        <strong>NextStepAI <b>Voice</b></strong>
+        <span class="status-dot"></span>
+      </div>
+      <div class="signal" id="signal"></div>
+      <div class="message-row">
+        <span id="message">Escuchando. Presiona el atajo para convertir.</span>
+        <b id="timer">00:00</b>
+      </div>
+    </main>
+    <script src="overlay.js"></script>
+  </body>
+</html>

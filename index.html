@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; media-src 'self' blob:;" />
+    <title>NextStepAI Voice</title>
+    <link rel="icon" type="image/png" href="assets/app-icon-32.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="titlebar">
+      <div class="brand">
+        <span class="incision-mark" aria-hidden="true"><i></i><i></i></span>
+        <span class="wordmark">NextStepAI <b>Voice</b></span>
+      </div>
+      <div class="titlebar-status"><span></span>Procesamiento local</div>
+    </header>
+
+    <main class="app-shell">
+      <aside class="sidebar">
+        <div class="side-brand">
+          <span class="incision-mark large" aria-hidden="true"><i></i><i></i></span>
+          <div><strong>NextStepAI</strong><span>Voice</span></div>
+        </div>
+
+        <nav class="side-nav" aria-label="Navegación principal">
+          <button class="nav-item active" data-panel="home"><span>01</span>Inicio</button>
+          <button class="nav-item" data-panel="dictionary"><span>02</span>Diccionario</button>
+          <button class="nav-item" data-panel="settings"><span>03</span>Configuración</button>
+          <button class="nav-item" data-panel="guide"><span>04</span>Guía rápida</button>
+          <button class="nav-item" data-panel="about"><span>05</span>Acerca de</button>
+          <button class="nav-item" data-panel="support"><span>06</span>Soporte</button>
+        </nav>
+
+        <div class="side-footer">
+          <span>NextStepAI Voice · v0.2.0</span>
+          <small>Privado. Local. Bajo tu control.</small>
+        </div>
+      </aside>
+
+      <section class="content">
+        <div class="panel active" id="homePanel">
+          <header class="page-header">
+            <div><p class="eyebrow">01 / Espacio de trabajo</p><h1>Tu voz, convertida<br />en el <span class="hero-emphasis">siguiente paso</span>.</h1></div>
+            <div class="model-badge" id="modelBadge"><span></span>Motor local listo</div>
+          </header>
+
+          <div class="home-grid">
+            <section class="recorder-card" id="recorderStage">
+              <div class="card-label"><span>Captura directa</span><b id="timer">00:00</b></div>
+              <div class="incision-backdrop"><i></i><i></i></div>
+              <button class="record-button" id="recordButton" aria-label="Iniciar grabación"><span class="mic-icon"></span></button>
+              <div class="waveform" id="waveform" aria-hidden="true"></div>
+              <h2 id="headline">Listo para capturar tu idea.</h2>
+              <p id="stateLabel">Haz clic o usa Ctrl + Shift + Espacio.</p>
+              <div class="privacy-strip"><span>Audio local</span><span>Sin nube</span><span>Multilenguaje</span></div>
+            </section>
+
+            <aside class="quick-actions">
+              <div class="mini-card">
+                <span class="mini-index">Atajo principal</span>
+                <strong>Ctrl + Shift + Espacio</strong>
+                <small>Inicia y termina una captura desde cualquier aplicación.</small>
+              </div>
+              <button class="mini-card action-card" id="reprocessButton">
+                <span class="mini-index">Repetir proceso</span>
+                <strong>Reprocesar última grabación →</strong>
+                <small>Útil si cambiaste idioma o diccionario.</small>
+              </button>
+            </aside>
+          </div>
+
+          <section class="transcript-section">
+            <div class="section-heading">
+              <div><p class="eyebrow">Texto reciente</p><h2>Últimas transcripciones</h2></div>
+              <button class="text-button" id="clearHistory">Borrar historial</button>
+            </div>
+            <div class="history-list" id="historyList"></div>
+          </section>
+        </div>
+
+        <div class="panel" id="dictionaryPanel">
+          <header class="page-header">
+            <div><p class="eyebrow">02 / Precisión personal</p><h1>Palabras que deben<br />quedar bien.</h1><p class="page-lead">Añade nombres, marcas y términos técnicos. Se aplicarán después de cada transcripción.</p></div>
+          </header>
+          <section class="feature-card dictionary-builder">
+            <div><span class="card-kicker">Nuevo término</span><h2>Enseña una palabra al sistema.</h2><p>Escribe la forma exacta que quieres conservar.</p></div>
+            <form id="dictionaryForm"><input id="dictionaryInput" maxlength="80" placeholder="Ej. NextStepAI" autocomplete="off" /><button type="submit">Añadir término</button></form>
+          </section>
+          <div class="dictionary-list" id="dictionaryList"></div>
+        </div>
+
+        <div class="panel" id="settingsPanel">
+          <header class="page-header">
+            <div><p class="eyebrow">03 / Control del sistema</p><h1>Configura el flujo.<br />No la complejidad.</h1><p class="page-lead">Cada ajuste está conectado al comportamiento real de la aplicación.</p></div>
+          </header>
+          <div class="settings-groups">
+            <section class="settings-group">
+              <h3>Captura</h3>
+              <label class="setting-row"><span><strong>Micrófono</strong><small>Entrada usada para capturar tu voz.</small></span><select id="microphoneSelect"><option value="">Micrófono predeterminado</option></select></label>
+              <label class="setting-row"><span><strong>Idioma</strong><small>Idioma principal para Whisper.</small></span><select id="languageSelect"><option value="spanish">Español</option><option value="english">English</option><option value="french">Français</option><option value="german">Deutsch</option><option value="portuguese">Português</option></select></label>
+              <label class="setting-row"><span><strong>Calidad de transcripción</strong><small>Base prioriza velocidad. Small mejora precisión y requiere más tiempo.</small></span><select id="whisperProfile"><option value="fast">Rápido · Whisper Base</option><option value="accurate">Alta precisión · Whisper Small</option></select></label>
+              <div class="setting-row"><span><strong>Atajo de transcripción</strong><small>Disponible incluso con la ventana en segundo plano.</small></span><kbd>Ctrl + Shift + Espacio</kbd></div>
+              <div class="setting-row"><span><strong>Reprocesar última grabación</strong><small>Vuelve a ejecutar el motor sin grabar otra vez.</small></span><kbd>Ctrl + Alt + Espacio</kbd></div>
+            </section>
+
+            <section class="settings-group">
+              <h3>Entrega del texto</h3>
+              <label class="setting-row"><span><strong>Modo de entrega</strong><small>Elige qué sucede al terminar.</small></span><select id="deliveryMode"><option value="paste-copy">Pegar y guardar en portapapeles</option><option value="copy">Solo guardar en portapapeles</option><option value="app">Solo mostrar en la aplicación</option></select></label>
+              <label class="setting-row"><span><strong>Agregar espacio final</strong><small>Facilita continuar escribiendo después del dictado.</small></span><input type="checkbox" id="appendSpace" /></label>
+              <label class="setting-row"><span><strong>Limpieza y sintaxis local</strong><small>Reduce muletillas, corrige espacios, puntuación y errores sintácticos comunes.</small></span><input type="checkbox" id="cleanupText" /></label>
+              <label class="setting-row"><span><strong>Aplicar diccionario</strong><small>Respeta tus nombres y términos personalizados.</small></span><input type="checkbox" id="dictionaryEnabled" /></label>
+            </section>
+
+            <section class="settings-group">
+              <h3>Historial</h3>
+              <label class="setting-row"><span><strong>Límite de transcripciones</strong><small>Las más antiguas se eliminan automáticamente.</small></span><select id="historyLimit"><option value="10">10 entradas</option><option value="30">30 entradas</option><option value="50">50 entradas</option><option value="100">100 entradas</option></select></label>
+            </section>
+          </div>
+        </div>
+
+        <div class="panel" id="guidePanel">
+          <header class="page-header">
+            <div><p class="eyebrow">04 / Guía rápida</p><h1>Un flujo sencillo.<br />Bien explicado.</h1><p class="page-lead">Recorre las funciones esenciales de NextStepAI Voice.</p></div>
+          </header>
+          <section class="guide-card">
+            <div class="guide-visual" id="guideVisual"></div>
+            <footer class="guide-footer">
+              <div><span id="guideCount">1 / 6</span><strong id="guideTitle"></strong><small id="guideDescription"></small></div>
+              <div class="guide-controls"><button id="guidePrev">←</button><div id="guideDots"></div><button id="guideNext">Siguiente →</button></div>
+            </footer>
+          </section>
+        </div>
+
+        <div class="panel" id="aboutPanel">
+          <header class="page-header"><div><p class="eyebrow">05 / Producto</p><h1>Acerca de<br />NextStepAI Voice.</h1></div></header>
+          <section class="about-card">
+            <div class="about-mark"><span class="incision-mark hero" aria-hidden="true"><i></i><i></i></span></div>
+            <div><h2>Dictado privado para trabajo real.</h2><p>NextStepAI Voice convierte voz en texto usando un motor Whisper ejecutado en tu equipo. El audio no se envía a servidores externos.</p><p>El producto está diseñado para capturar decisiones, mensajes e ideas sin interrumpir el trabajo que ya estás haciendo.</p><dl><div><dt>Versión</dt><dd>0.2.0</dd></div><div><dt>Motor</dt><dd>Whisper Base / Small local</dd></div><div><dt>Identidad</dt><dd>NextStepAI</dd></div></dl></div>
+          </section>
+        </div>
+
+        <div class="panel" id="supportPanel">
+          <header class="page-header"><div><p class="eyebrow">06 / Soporte</p><h1>Resuelve lo importante.<br />Sin rodeos.</h1><p class="page-lead">La información de diagnóstico nunca incluye tus transcripciones.</p></div></header>
+          <div class="support-grid">
+            <section class="feature-card"><span class="card-kicker">Diagnóstico</span><h2>¿Algo no funciona?</h2><p>Copia información técnica básica para compartirla con soporte.</p><button id="diagnosticsButton">Copiar diagnóstico</button></section>
+            <section class="feature-card"><span class="card-kicker">Primeros pasos</span><h2>Revisa la guía rápida.</h2><p>Confirma el micrófono, el idioma y el modo de entrega.</p><button class="go-guide">Abrir guía</button></section>
+            <section class="feature-card"><span class="card-kicker">Privacidad</span><h2>Tus palabras se quedan aquí.</h2><p>Audio, diccionario e historial permanecen en este equipo.</p></section>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <script src="dist/renderer.js"></script>
+  </body>
+</html>
