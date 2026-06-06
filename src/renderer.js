@@ -9,6 +9,7 @@ const voiceAPI = window.voiceAPI || {
   transcribe: async () => { throw new Error("La transcripción requiere la aplicación de escritorio."); },
   overlay: async () => {},
   diagnostics: async () => ({ platform: "browser", version: "preview" }),
+  clearModels: async () => true,
   onShortcutToggle: () => {},
   onReprocess: () => {},
   onShortcutError: () => {},
@@ -72,6 +73,7 @@ const elements = {
   guidePrev: $("#guidePrev"),
   guideNext: $("#guideNext"),
   diagnosticsButton: $("#diagnosticsButton"),
+  repairModelsButton: $("#repairModelsButton"),
   toast: $("#toast")
 };
 
@@ -453,12 +455,33 @@ elements.diagnosticsButton.addEventListener("click", async () => {
     `Model status: ${elements.modelBadge.textContent.trim()}`,
     `Whisper profile selected: ${resolveWhisperProfile(settings.whisperProfile).shortLabel}`,
     `Whisper profile loaded: ${diagnostics.loadedWhisperProfile}`,
+    `Model cache: ${diagnostics.modelCacheMb} MB`,
     `Microphone configured: ${Boolean(elements.microphone.value)}`,
     `Dictionary terms: ${dictionary.length}`,
     `History entries: ${history.length}`
   ].join("\n");
   await voiceAPI.copy(report);
   showToast("Diagnóstico copiado. No incluye transcripciones.");
+});
+elements.repairModelsButton.addEventListener("click", async () => {
+  if (recording || processing) {
+    showToast("Espera a que termine la grabación antes de reparar los modelos.");
+    return;
+  }
+  elements.modelBadge.classList.add("loading");
+  elements.modelBadge.classList.remove("error");
+  elements.modelBadge.innerHTML = "<span></span>Reparando modelos";
+  try {
+    await voiceAPI.clearModels();
+    elements.modelBadge.classList.remove("loading", "error");
+    elements.modelBadge.innerHTML = "<span></span>Modelos listos para descargar";
+    showToast("Caché reparada. El modelo se descargará en la próxima transcripción.");
+  } catch (error) {
+    elements.modelBadge.classList.remove("loading");
+    elements.modelBadge.classList.add("error");
+    elements.modelBadge.innerHTML = "<span></span>No fue posible reparar";
+    showToast(`No fue posible reparar los modelos: ${error.message || error}`);
+  }
 });
 
 voiceAPI.onShortcutToggle(() => toggleRecording("shortcut"));

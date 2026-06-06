@@ -1,22 +1,86 @@
 {
   "name": "nextstepai-voice",
-  "version": "0.2.0",
-  "description": "NextStepAI Voice - transcripción de voz privada y local",
+  "version": "1.0.0",
+  "description": "NextStepAI Voice - dictado privado y local para Windows",
+  "author": "Felipe Avinzano",
+  "license": "SEE LICENSE IN LICENSE.md",
   "main": "src/main.cjs",
   "scripts": {
     "build": "esbuild ./src/renderer.js --bundle --platform=browser --format=iife --outfile=./dist/renderer.js",
     "build:icons": "node scripts/build-icons.cjs",
     "start": "electron .",
     "dev": "npm run build && electron .",
-    "test": "npm run build && node --check src/main.cjs && node --check src/preload.cjs && node src/text-cleanup.test.cjs && node src/whisper-profiles.test.cjs",
-    "test:production": "node --check src/main.cjs && node --check src/preload.cjs && node src/text-cleanup.test.cjs && node src/whisper-profiles.test.cjs && node src/transcription-smoke.test.cjs",
-    "test:models": "node src/whisper-models.smoke.cjs"
+    "test": "npm run build && node --check src/main.cjs && node --check src/preload.cjs && node src/text-cleanup.test.cjs && node src/whisper-profiles.test.cjs && node src/model-storage.test.cjs",
+    "test:production": "node --check src/main.cjs && node --check src/preload.cjs && node src/text-cleanup.test.cjs && node src/whisper-profiles.test.cjs && node src/model-storage.test.cjs && node src/transcription-smoke.test.cjs",
+    "test:models": "node src/whisper-models.smoke.cjs",
+    "release:win": "npm run build && npm run build:icons && electron-builder --win nsis",
+    "release:dir": "npm run build && electron-builder --dir --win",
+    "release:verify": "node scripts/verify-release.cjs",
+    "release:test-models": "node scripts/verify-packaged-models.cjs",
+    "release:test-installer": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-installer.ps1"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.7.3"
   },
   "devDependencies": {
     "electron": "^39.2.7",
+    "electron-builder": "^26.15.0",
     "esbuild": "^0.27.0"
+  },
+  "build": {
+    "appId": "com.nextstepai.voice",
+    "productName": "NextStepAI Voice",
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/onnxruntime-node/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "src/**/*",
+      "assets/app-icon*",
+      "assets/incision-mark.svg",
+      "assets/fonts/DMSerifDisplay-*.ttf",
+      "assets/fonts/Geist-*.woff2",
+      "index.html",
+      "styles.css",
+      "overlay.html",
+      "overlay.css",
+      "overlay.js",
+      "package.json",
+      "LICENSE.md",
+      "PRIVACY.md",
+      "TERMS.md",
+      "THIRD_PARTY_NOTICES.md",
+      "!src/**/*.test.cjs",
+      "!src/**/*.smoke.cjs",
+      "!node_modules/@huggingface/transformers/.cache/**/*",
+      "!node_modules/onnxruntime-node/bin/napi-v3/darwin/**/*",
+      "!node_modules/onnxruntime-node/bin/napi-v3/linux/**/*",
+      "!node_modules/onnxruntime-node/bin/napi-v3/win32/arm64/**/*"
+    ],
+    "win": {
+      "icon": "assets/app-icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "NextStepAI-Voice-Setup-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "NextStepAI Voice",
+      "deleteAppDataOnUninstall": false,
+      "license": "LICENSE.md"
+    }
   }
 }

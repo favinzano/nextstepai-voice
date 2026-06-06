@@ -2,6 +2,12 @@ const { app, BrowserWindow, clipboard, globalShortcut, ipcMain, session, screen 
 const path = require("path");
 const { execFile } = require("child_process");
 const { resolveWhisperProfile } = require("./whisper-profiles.cjs");
+const {
+  clearModelCache,
+  directorySize,
+  ensureModelCache,
+  getModelCacheDir
+} = require("./model-storage.cjs");
 
 let mainWindow;
 let overlayWindow;
@@ -36,7 +42,7 @@ async function getTranscriber(profileId) {
   loadingProfile = profile.id;
   transcriberPromise = (async () => {
     const { pipeline, env } = await import("@huggingface/transformers");
-    env.cacheDir = path.join(__dirname, "..", "node_modules", "@huggingface", "transformers", ".cache");
+    env.cacheDir = await ensureModelCache(app.getPath("userData"), profile.id);
     env.allowLocalModels = true;
     env.allowRemoteModels = true;
 
@@ -72,6 +78,16 @@ async function getTranscriber(profileId) {
     transcriberPromise = undefined;
     loadingProfile = undefined;
   }
+}
+
+function friendlyModelError(error) {
+  const message = String(error?.message || error || "");
+  if (/espacio insuficiente/i.test(message)) return message;
+  if (/ENOSPC|no space left/i.test(message)) return "No hay espacio suficiente para descargar o preparar el modelo.";
+  if (/fetch|network|ENOTFOUND|ECONN|HTTP|offline/i.test(message)) {
+    return "No fue posible descargar el modelo. Revisa tu conexión e inténtalo nuevamente.";
+  }
+  return "No fue posible preparar el modelo local. Usa “Reparar modelos” desde Soporte e inténtalo nuevamente.";
 }
 
 function createWindow() {
@@ -225,7 +241,32 @@ async function pasteIntoActiveApp(text) {
   return output.includes("PASTED");
 }
 
-app.whenReady().then(() => {
+async function runPackagedModelSelfTest() {
+  const argument = process.argv.find((value) => value.startsWith("--self-test-model="));
+  if (!argument) return false;
+  const profileId = argument.split("=")[1];
+  const pipe = await getTranscriber(profileId);
+  await pipe(new Float32Array(32000), {
+    language: "spanish",
+    task: "transcribe",
+    chunk_length_s: 30,
+    stride_length_s: 5
+  });
+  return true;
+}
+
+app.whenReady().then(async () => {
+  try {
+    if (await runPackagedModelSelfTest()) {
+      app.exit(0);
+      return;
+    }
+  } catch (error) {
+    console.error("Packaged model self-test failed:", error);
+    app.exit(1);
+    return;
+  }
+
   session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
     return permission === "media";
   });
@@ -273,15 +314,29 @@ ipcMain.handle("clipboard:paste", async (_event, text) => {
 });
 
 ipcMain.handle("transcription:run", async (_event, audio, language, profileId) => {
-  const pipe = await getTranscriber(profileId);
-  const samples = audio instanceof Float32Array ? audio : new Float32Array(audio);
-  const output = await pipe(samples, {
-    language,
-    task: "transcribe",
-    chunk_length_s: 30,
-    stride_length_s: 5
-  });
-  return output.text.trim();
+  try {
+    const pipe = await getTranscriber(profileId);
+    const samples = audio instanceof Float32Array ? audio : new Float32Array(audio);
+    const output = await pipe(samples, {
+      language,
+      task: "transcribe",
+      chunk_length_s: 30,
+      stride_length_s: 5
+    });
+    return output.text.trim();
+  } catch (error) {
+    throw new Error(friendlyModelError(error));
+  }
+});
+
+ipcMain.handle("models:clear", async () => {
+  if (transcriber && typeof transcriber.dispose === "function") await transcriber.dispose();
+  transcriber = undefined;
+  transcriberProfile = undefined;
+  transcriberPromise = undefined;
+  loadingProfile = undefined;
+  await clearModelCache(app.getPath("userData"));
+  return true;
 });
 
 ipcMain.handle("overlay:set-state", (_event, state) => {
@@ -290,11 +345,16 @@ ipcMain.handle("overlay:set-state", (_event, state) => {
   return true;
 });
 
-ipcMain.handle("app:diagnostics", () => ({
-  platform: `${process.platform} ${process.arch}`,
-  version: app.getVersion(),
-  loadedWhisperProfile: transcriberProfile || loadingProfile || "none"
-}));
+ipcMain.handle("app:diagnostics", async () => {
+  const cacheDir = getModelCacheDir(app.getPath("userData"));
+  return {
+    platform: `${process.platform} ${process.arch}`,
+    version: app.getVersion(),
+    loadedWhisperProfile: transcriberProfile || loadingProfile || "none",
+    modelCacheMb: Math.round(await directorySize(cacheDir) / 1024 / 1024),
+    modelCacheDir: cacheDir
+  };
+});
 
 ipcMain.handle("window:minimize", () => mainWindow?.minimize());
 ipcMain.handle("window:hide", () => mainWindow?.hide());

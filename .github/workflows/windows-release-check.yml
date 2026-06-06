@@ -1,0 +1,31 @@
+name: Windows Release Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run test:production
+      - run: npm audit --omit=dev
+      - run: npm run release:win
+      - run: npm run release:verify
+      - run: npm run release:test-models
+      - run: npm run release:test-installer
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nextstepai-voice-windows
+          path: |
+            release/NextStepAI-Voice-Setup-*.exe
+            release/NextStepAI-Voice-Setup-*.sha256

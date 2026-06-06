@@ -1,16 +1,18 @@
 const assert = require("node:assert/strict");
 const path = require("node:path");
 const { cleanTranscription } = require("./text-cleanup.cjs");
+const { resolveWhisperProfile } = require("./whisper-profiles.cjs");
 
 async function run() {
   const { pipeline, env } = await import("@huggingface/transformers");
   env.cacheDir = path.join(__dirname, "..", "node_modules", "@huggingface", "transformers", ".cache");
   env.allowLocalModels = true;
-  env.allowRemoteModels = false;
+  env.allowRemoteModels = true;
 
-  const transcriber = await pipeline("automatic-speech-recognition", "onnx-community/whisper-tiny", {
+  const profile = resolveWhisperProfile("fast");
+  const transcriber = await pipeline("automatic-speech-recognition", profile.model, {
     device: "cpu",
-    dtype: "q8"
+    dtype: profile.dtype
   });
 
   let seed = 123456789;

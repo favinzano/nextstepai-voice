@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld("voiceAPI", {
   transcribe: (audio, language, profile) => ipcRenderer.invoke("transcription:run", audio, language, profile),
   overlay: (state) => ipcRenderer.invoke("overlay:set-state", state),
   diagnostics: () => ipcRenderer.invoke("app:diagnostics"),
+  clearModels: () => ipcRenderer.invoke("models:clear"),
   minimize: () => ipcRenderer.invoke("window:minimize"),
   hide: () => ipcRenderer.invoke("window:hide"),
   onShortcutToggle: (callback) => ipcRenderer.on("shortcut:toggle", callback),
