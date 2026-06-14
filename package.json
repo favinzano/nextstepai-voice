@@ -1,114 +1,114 @@
-{
-  "name": "nextstepai-voice",
-  "version": "1.0.0",
-  "description": "NextStepAI Voice - dictado privado y local para Windows",
-  "author": "Felipe Avinzano",
-  "license": "SEE LICENSE IN LICENSE.md",
-  "main": "src/main.cjs",
-  "scripts": {
-    "build": "esbuild ./src/renderer.js --bundle --platform=browser --format=iife --outfile=./dist/renderer.js",
-    "build:native": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-native.ps1",
-    "build:icons": "node scripts/build-icons.cjs",
-    "start": "electron .",
-    "dev": "npm run build && electron .",
-    "test": "npm run build && node --check src/main.cjs && node --check src/preload.cjs && node --check src/pcm-capture-worklet.js && node src/text-cleanup.test.cjs && node src/audio-quality.test.cjs && node src/voice-activity.test.cjs && node src/benchmark-utils.test.cjs && node src/whisper-profiles.test.cjs && node src/model-storage.test.cjs && node src/local-state.test.cjs && node src/app-preferences.test.cjs && node src/data-migrations.test.cjs",
-    "test:production": "node --check src/main.cjs && node --check src/preload.cjs && node --check src/pcm-capture-worklet.js && node src/text-cleanup.test.cjs && node src/audio-quality.test.cjs && node src/voice-activity.test.cjs && node src/benchmark-utils.test.cjs && node src/whisper-profiles.test.cjs && node src/model-storage.test.cjs && node src/local-state.test.cjs && node src/app-preferences.test.cjs && node src/data-migrations.test.cjs && node src/transcription-smoke.test.cjs",
-    "test:models": "node src/whisper-models.smoke.cjs",
-    "benchmark:models": "node scripts/benchmark-models.cjs",
-    "pre-release": "node scripts/compress-natives.cjs",
-    "release:win": "npm run build && npm run build:native && npm run build:icons && npm run pre-release && electron-builder --win nsis",
-    "release:signed": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release-signed.ps1",
-    "release:dir": "npm run build && npm run build:native && npm run pre-release && electron-builder --dir --win",
-    "release:verify": "node scripts/verify-release.cjs",
-    "release:verify-acceptance": "node scripts/verify-acceptance.cjs",
-    "release:test-models": "node scripts/verify-packaged-models.cjs",
-    "release:test-installer": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-installer.ps1",
-    "release:test-tray": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-tray.ps1",
-    "release:verify-signature": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-signature.ps1"
-  },
-  "dependencies": {
-    "@huggingface/transformers": "^3.7.3",
-    "electron-updater": "^6.8.9"
-  },
-  "devDependencies": {
-    "electron": "^39.2.7",
-    "electron-builder": "^26.15.0",
-    "esbuild": "^0.27.0"
-  },
-  "build": {
-    "appId": "com.nextstepai.voice",
-    "productName": "NextStepAI Voice",
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "favinzano",
-        "repo": "nextstepai-voice",
-        "releaseType": "release"
-      }
-    ],
-    "asar": true,
-    "asarUnpack": [
-      "node_modules/onnxruntime-node/bin/napi-v3/win32/x64/**/*"
-    ],
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "src/**/*",
-      "assets/app-icon*",
-      "assets/incision-mark.svg",
-      "assets/fonts/DMSerifDisplay-*.ttf",
-      "assets/fonts/Geist-*.woff2",
-      "index.html",
-      "styles.css",
-      "overlay.html",
-      "overlay.css",
-      "overlay.js",
-      "package.json",
-      "LICENSE.md",
-      "PRIVACY.md",
-      "TERMS.md",
-      "THIRD_PARTY_NOTICES.md",
-      "!src/**/*.test.cjs",
-      "!src/**/*.smoke.cjs",
-      "!node_modules/**/.cache/**/*",
-      "!node_modules/@huggingface/transformers/.cache/**/*",
-      "!**/*.onnx",
-      "!**/*.onnx_data",
-      "!node_modules/onnxruntime-node/bin/napi-v3/darwin/**/*",
-      "!node_modules/onnxruntime-node/bin/napi-v3/linux/**/*",
-      "!node_modules/onnxruntime-node/bin/napi-v3/win32/arm64/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": "native/win32-x64",
-        "to": "native/win32-x64",
-        "filter": [
-          "NextStepAI.PasteHelper.exe"
-        ]
-      }
-    ],
-    "win": {
-      "icon": "assets/app-icon.ico",
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "artifactName": "NextStepAI-Voice-Setup-${version}-${arch}.${ext}"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "NextStepAI Voice",
-      "deleteAppDataOnUninstall": false,
-      "license": "LICENSE.md"
-    }
-  }
+﻿{
+    "name":  "nextstepai-voice",
+    "version":  "1.1.0",
+    "description":  "NextStepAI Voice - dictado privado y local para Windows",
+    "author":  "Felipe Avinzano",
+    "license":  "SEE LICENSE IN LICENSE.md",
+    "main":  "src/main.cjs",
+    "scripts":  {
+                    "build":  "esbuild ./src/renderer.js --bundle --platform=browser --format=iife --outfile=./dist/renderer.js",
+                    "build:native":  "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-native.ps1",
+                    "build:icons":  "node scripts/build-icons.cjs",
+                    "start":  "electron .",
+                    "dev":  "npm run build \u0026\u0026 electron .",
+                    "test":  "npm run build \u0026\u0026 node --check src/main.cjs \u0026\u0026 node --check src/preload.cjs \u0026\u0026 node --check src/pcm-capture-worklet.js \u0026\u0026 node src/text-cleanup.test.cjs \u0026\u0026 node src/audio-quality.test.cjs \u0026\u0026 node src/voice-activity.test.cjs \u0026\u0026 node src/benchmark-utils.test.cjs \u0026\u0026 node src/whisper-profiles.test.cjs \u0026\u0026 node src/model-storage.test.cjs \u0026\u0026 node src/local-state.test.cjs \u0026\u0026 node src/app-preferences.test.cjs \u0026\u0026 node src/data-migrations.test.cjs",
+                    "test:production":  "node --check src/main.cjs \u0026\u0026 node --check src/preload.cjs \u0026\u0026 node --check src/pcm-capture-worklet.js \u0026\u0026 node src/text-cleanup.test.cjs \u0026\u0026 node src/audio-quality.test.cjs \u0026\u0026 node src/voice-activity.test.cjs \u0026\u0026 node src/benchmark-utils.test.cjs \u0026\u0026 node src/whisper-profiles.test.cjs \u0026\u0026 node src/model-storage.test.cjs \u0026\u0026 node src/local-state.test.cjs \u0026\u0026 node src/app-preferences.test.cjs \u0026\u0026 node src/data-migrations.test.cjs \u0026\u0026 node src/transcription-smoke.test.cjs",
+                    "test:models":  "node src/whisper-models.smoke.cjs",
+                    "benchmark:models":  "node scripts/benchmark-models.cjs",
+                    "pre-release":  "node scripts/compress-natives.cjs",
+                    "release:win":  "npm run build \u0026\u0026 npm run build:native \u0026\u0026 npm run build:icons \u0026\u0026 npm run pre-release \u0026\u0026 electron-builder --win nsis",
+                    "release:signed":  "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release-signed.ps1",
+                    "release:dir":  "npm run build \u0026\u0026 npm run build:native \u0026\u0026 npm run pre-release \u0026\u0026 electron-builder --dir --win",
+                    "release:verify":  "node scripts/verify-release.cjs",
+                    "release:verify-acceptance":  "node scripts/verify-acceptance.cjs",
+                    "release:test-models":  "node scripts/verify-packaged-models.cjs",
+                    "release:test-installer":  "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-installer.ps1",
+                    "release:test-tray":  "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-tray.ps1",
+                    "release:verify-signature":  "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-signature.ps1"
+                },
+    "dependencies":  {
+                         "@huggingface/transformers":  "^3.7.3",
+                         "electron-updater":  "^6.8.9"
+                     },
+    "devDependencies":  {
+                            "electron":  "^39.2.7",
+                            "electron-builder":  "^26.15.0",
+                            "esbuild":  "^0.27.0"
+                        },
+    "build":  {
+                  "appId":  "com.nextstepai.voice",
+                  "productName":  "NextStepAI Voice",
+                  "publish":  [
+                                  {
+                                      "provider":  "github",
+                                      "owner":  "favinzano",
+                                      "repo":  "nextstepai-voice",
+                                      "releaseType":  "release"
+                                  }
+                              ],
+                  "asar":  true,
+                  "asarUnpack":  [
+                                     "node_modules/onnxruntime-node/bin/napi-v3/win32/x64/**/*"
+                                 ],
+                  "directories":  {
+                                      "output":  "release"
+                                  },
+                  "files":  [
+                                "dist/**/*",
+                                "src/**/*",
+                                "assets/app-icon*",
+                                "assets/incision-mark.svg",
+                                "assets/fonts/DMSerifDisplay-*.ttf",
+                                "assets/fonts/Geist-*.woff2",
+                                "index.html",
+                                "styles.css",
+                                "overlay.html",
+                                "overlay.css",
+                                "overlay.js",
+                                "package.json",
+                                "LICENSE.md",
+                                "PRIVACY.md",
+                                "TERMS.md",
+                                "THIRD_PARTY_NOTICES.md",
+                                "!src/**/*.test.cjs",
+                                "!src/**/*.smoke.cjs",
+                                "!node_modules/**/.cache/**/*",
+                                "!node_modules/@huggingface/transformers/.cache/**/*",
+                                "!**/*.onnx",
+                                "!**/*.onnx_data",
+                                "!node_modules/onnxruntime-node/bin/napi-v3/darwin/**/*",
+                                "!node_modules/onnxruntime-node/bin/napi-v3/linux/**/*",
+                                "!node_modules/onnxruntime-node/bin/napi-v3/win32/arm64/**/*"
+                            ],
+                  "extraResources":  [
+                                         {
+                                             "from":  "native/win32-x64",
+                                             "to":  "native/win32-x64",
+                                             "filter":  [
+                                                            "NextStepAI.PasteHelper.exe"
+                                                        ]
+                                         }
+                                     ],
+                  "win":  {
+                              "icon":  "assets/app-icon.ico",
+                              "target":  [
+                                             {
+                                                 "target":  "nsis",
+                                                 "arch":  [
+                                                              "x64"
+                                                          ]
+                                             }
+                                         ],
+                              "artifactName":  "NextStepAI-Voice-Setup-${version}-${arch}.${ext}"
+                          },
+                  "nsis":  {
+                               "oneClick":  false,
+                               "allowToChangeInstallationDirectory":  true,
+                               "createDesktopShortcut":  true,
+                               "createStartMenuShortcut":  true,
+                               "shortcutName":  "NextStepAI Voice",
+                               "deleteAppDataOnUninstall":  false,
+                               "license":  "LICENSE.md"
+                           }
+              }
 }
