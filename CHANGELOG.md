@@ -1,10 +1,32 @@
-﻿## - 2026-06-14
-
-- **Added:** New native Windows Taskbar status overlays and binary badge tracking for downloading, recording, and inference states. Dual-mode hotkey settings layout supporting toggle and low-level "Push-to-Talk" hardware events.
-- **Optimized (DevOps Overhaul):** Matrix compilation build pipeline splits inside GitHub Actions for `Legacy` vs `AVX2` binaries. Integrated pre-release native DLL extraction compression routines using UPX binary stripping tools.
-# Changelog
+﻿# Changelog
 
 Todos los cambios relevantes de NextStepAI Voice se documentan en este archivo.
+
+## [1.1.1] - 2026-06-14
+
+### Corregido
+
+- Restaurada la visualización del overlay inferior durante grabaciones iniciadas
+  desde el botón de la aplicación, además de las iniciadas mediante el atajo
+  global.
+- Sincronizados los estados de grabación, procesamiento, éxito y error del
+  overlay para todos los métodos de captura.
+- Ajustadas las instrucciones del overlay según el origen de la grabación:
+  botón, atajo Toggle o Push-to-Talk.
+
+## [1.1.0] - 2026-06-14
+
+### Añadido
+
+- Nuevos indicadores nativos de estado en la barra de tareas de Windows para
+  descarga, grabación y procesamiento.
+- Configuración de atajos en modos Toggle y Push-to-Talk mediante eventos
+  nativos de bajo nivel.
+
+### Optimizado
+
+- Pipeline matricial de GitHub Actions para instaladores Legacy y AVX2.
+- Compresión previa al empaquetado de DLL nativas mediante UPX.
 
 ## [1.0.0] - 2026-06-14
 
