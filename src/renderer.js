@@ -16,6 +16,7 @@ const voiceAPI = window.voiceAPI || {
   writeState: async (state) => state,
   transcribe: async () => { throw new Error("La transcripción requiere la aplicación de escritorio."); },
   overlay: async () => {},
+  taskbar: async () => {},
   diagnostics: async () => ({ platform: "browser", version: "preview" }),
   clearModels: async () => true,
   getCloseBehavior: async () => "ask",
@@ -24,7 +25,11 @@ const voiceAPI = window.voiceAPI || {
   setAutoStart: async () => false,
   getShortcuts: async () => ({ record: "CommandOrControl+Shift+Space", reprocess: "CommandOrControl+Alt+Space" }),
   setShortcuts: async (shortcuts) => shortcuts,
+  getShortcutMode: async () => "toggle",
+  setShortcutMode: async (mode) => mode,
   onShortcutToggle: () => {},
+  onShortcutPressed: () => {},
+  onShortcutReleased: () => {},
   onReprocess: () => {},
   onShortcutError: () => {},
   onModelProgress: () => {},
@@ -46,6 +51,7 @@ const defaults = {
   historyLimit: 30,
   autoStopEnabled: true,
   silenceTimeoutMs: 1800,
+  shortcutMode: "toggle",
   autoStartEnabled: true
 };
 
@@ -77,6 +83,7 @@ let overlayHideTimer;
 let autoStopPending = false;
 let voiceActivityDetector;
 let persistQueue = Promise.resolve();
+let holdShortcutPressed = false;
 
 const elements = {
   recordButton: $("#recordButton"),
@@ -107,6 +114,7 @@ const elements = {
   silenceTimeout: $("#silenceTimeout"),
   autoStartEnabled: $("#autoStartEnabled"),
   closeBehavior: $("#closeBehavior"),
+  shortcutMode: $("#shortcutMode"),
   recordShortcut: $("#recordShortcut"),
   reprocessShortcut: $("#reprocessShortcut"),
   guideVisual: $("#guideVisual"),
@@ -177,6 +185,7 @@ function formatTime(totalSeconds) {
 }
 
 function setStatus(status, detail) {
+  voiceAPI.taskbar({ status });
   elements.recorderStage.dataset.status = status;
   elements.stateLabel.textContent = detail;
   elements.recordButton.disabled = status === "processing";
@@ -265,10 +274,16 @@ async function beginRecording(source = "button") {
     elements.timer.textContent = "00:00";
     timerInterval = setInterval(() => {
       elements.timer.textContent = formatTime((Date.now() - startedAt) / 1000);
-      if (triggerSource === "shortcut") updateOverlay("recording", "Escuchando. Presiona el atajo para convertir.", elements.timer.textContent);
+      if (triggerSource === "shortcut") {
+        const instruction = settings.shortcutMode === "hold" ? "Escuchando. Suelta el atajo para convertir." : "Escuchando. Presiona el atajo para convertir.";
+        updateOverlay("recording", instruction, elements.timer.textContent);
+      }
     }, 250);
-    setStatus("recording", "Habla con naturalidad. Presiona de nuevo para convertir.");
-    if (triggerSource === "shortcut") updateOverlay("recording", "Escuchando. Presiona el atajo para convertir.", "00:00");
+    setStatus("recording", settings.shortcutMode === "hold" ? "Habla con naturalidad. Suelta el atajo para convertir." : "Habla con naturalidad. Presiona de nuevo para convertir.");
+    if (triggerSource === "shortcut") {
+      const instruction = settings.shortcutMode === "hold" ? "Escuchando. Suelta el atajo para convertir." : "Escuchando. Presiona el atajo para convertir.";
+      updateOverlay("recording", instruction, "00:00");
+    }
   } catch (error) {
     console.error(error);
     await releaseAudioCapture();
@@ -494,6 +509,8 @@ async function hydrateSettings() {
   const shortcuts = await voiceAPI.getShortcuts();
   elements.recordShortcut.value = shortcuts.record;
   elements.reprocessShortcut.value = shortcuts.reprocess;
+  settings.shortcutMode = await voiceAPI.getShortcutMode();
+  elements.shortcutMode.value = settings.shortcutMode;
   settings.autoStartEnabled = await voiceAPI.getAutoStart();
   elements.autoStartEnabled.checked = settings.autoStartEnabled;
   saveSettings();
@@ -591,6 +608,7 @@ elements.diagnosticsButton.addEventListener("click", async () => {
     `Heap used: ${diagnostics.heapUsedMb} MB`,
     `Record shortcut: ${diagnostics.shortcuts.record}`,
     `Reprocess shortcut: ${diagnostics.shortcuts.reprocess}`,
+    `Shortcut mode: ${diagnostics.shortcutMode || settings.shortcutMode}`,
     `Last transcription metrics: ${JSON.stringify(diagnostics.lastTranscriptionMetrics || null)}`,
     `State schema: ${diagnostics.stateSchemaVersion}`,
     `State path: ${diagnostics.statePath}`,
@@ -656,8 +674,30 @@ async function updateShortcuts() {
 }
 elements.recordShortcut.addEventListener("change", updateShortcuts);
 elements.reprocessShortcut.addEventListener("change", updateShortcuts);
+elements.shortcutMode.addEventListener("change", async () => {
+  const previous = settings.shortcutMode;
+  try {
+    settings.shortcutMode = await voiceAPI.setShortcutMode(elements.shortcutMode.value);
+    elements.shortcutMode.value = settings.shortcutMode;
+    saveSettings();
+    showToast(settings.shortcutMode === "hold" ? "Mantén el atajo para grabar." : "Modo de atajo alternar activado.");
+  } catch (error) {
+    settings.shortcutMode = previous;
+    elements.shortcutMode.value = previous;
+    showToast(error.message || "No fue posible cambiar el modo del atajo.");
+  }
+});
 
 voiceAPI.onShortcutToggle(() => toggleRecording("shortcut"));
+voiceAPI.onShortcutPressed(async () => {
+  holdShortcutPressed = true;
+  if (!recording && !processing) await beginRecording("shortcut");
+  if (!holdShortcutPressed && recording) finishRecording();
+});
+voiceAPI.onShortcutReleased(() => {
+  holdShortcutPressed = false;
+  if (recording) finishRecording();
+});
 voiceAPI.onReprocess(() => processAudio(lastAudio, "shortcut"));
 voiceAPI.onShortcutError(() => showToast("Un acceso directo ya está siendo usado por otra aplicación."));
 voiceAPI.onNavigate((panel) => switchPanel(panel));

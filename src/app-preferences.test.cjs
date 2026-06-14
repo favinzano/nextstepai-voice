@@ -6,10 +6,12 @@ const {
   DEFAULT_SHORTCUTS,
   getAutoStartEnabled,
   getCloseBehavior,
+  getShortcutMode,
   getShortcuts,
   hasAutoStartPreference,
   setAutoStartEnabled,
   setCloseBehavior,
+  setShortcutMode,
   setShortcuts
 } = require("./app-preferences.cjs");
 
@@ -39,6 +41,11 @@ assert.deepEqual(getShortcuts(directory), {
 });
 assert.throws(() => setShortcuts(directory, { record: "CommandOrControl+D", reprocess: "CommandOrControl+D" }));
 assert.throws(() => setShortcuts(directory, { record: "CommandOrControl+D" }));
+assert.equal(getShortcutMode(directory), "toggle");
+assert.equal(setShortcutMode(directory, "hold"), "hold");
+assert.equal(getShortcutMode(directory), "hold");
+assert.equal(setShortcutMode(directory, "toggle"), "toggle");
+assert.throws(() => setShortcutMode(directory, "invalid"));
 
 fs.rmSync(directory, { recursive: true, force: true });
-console.log("App preferences: 17 checks passed.");
+console.log("App preferences: 22 checks passed.");

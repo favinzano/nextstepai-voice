@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 const CLOSE_BEHAVIORS = new Set(["ask", "tray", "exit"]);
+const SHORTCUT_MODES = new Set(["toggle", "hold"]);
 const DEFAULT_SHORTCUTS = Object.freeze({
   record: "CommandOrControl+Shift+Space",
   reprocess: "CommandOrControl+Alt+Space"
@@ -73,13 +74,28 @@ function setShortcuts(userDataPath, shortcuts) {
   return preferences.shortcuts;
 }
 
+function getShortcutMode(userDataPath) {
+  const mode = readPreferences(userDataPath).shortcutMode;
+  return SHORTCUT_MODES.has(mode) ? mode : "toggle";
+}
+
+function setShortcutMode(userDataPath, mode) {
+  if (!SHORTCUT_MODES.has(mode)) throw new Error(`Unsupported shortcut mode: ${mode}`);
+  const preferences = readPreferences(userDataPath);
+  preferences.shortcutMode = mode;
+  writePreferences(userDataPath, preferences);
+  return mode;
+}
+
 module.exports = {
   DEFAULT_SHORTCUTS,
   getAutoStartEnabled,
   getCloseBehavior,
+  getShortcutMode,
   getShortcuts,
   hasAutoStartPreference,
   setAutoStartEnabled,
   setCloseBehavior,
+  setShortcutMode,
   setShortcuts
 };

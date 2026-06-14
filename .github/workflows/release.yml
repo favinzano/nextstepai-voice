@@ -1,0 +1,126 @@
+name: Windows Matrix Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    name: Build Windows x64 (${{ matrix.target }})
+    runs-on: windows-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: legacy
+            flavor: Legacy
+          - target: avx2
+            flavor: AVX2
+
+    env:
+      NEXTSTEPAI_BUILD_TARGET: ${{ matrix.target }}
+      TESTING_REMOTELY: "true"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # Both matrix jobs use the same keys. This avoids downloading Electron and
+      # electron-builder toolchains again after the first cache is populated.
+      - name: Restore shared Electron caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: windows-x64-electron-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            windows-x64-electron-
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Configure build target
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          if ($LASTEXITCODE -ne 0) {
+            throw "No se pudo leer la version desde package.json."
+          }
+
+          if ("${{ matrix.target }}" -eq "avx2") {
+            if (-not [System.Runtime.Intrinsics.X86.Avx2]::IsSupported) {
+              throw "El runner seleccionado no soporta AVX2."
+            }
+
+            # Expose AVX2 flags to native components compiled by this workflow.
+            # onnxruntime-node ships precompiled DLLs that perform AVX2 runtime
+            # dispatch automatically; these flags do not rebuild those DLLs.
+            "CL=/arch:AVX2" >> $env:GITHUB_ENV
+            "CFLAGS=/arch:AVX2" >> $env:GITHUB_ENV
+            "CXXFLAGS=/arch:AVX2" >> $env:GITHUB_ENV
+            "NEXTSTEPAI_CPU_FEATURES=avx2" >> $env:GITHUB_ENV
+          } else {
+            "NEXTSTEPAI_CPU_FEATURES=legacy" >> $env:GITHUB_ENV
+          }
+
+          $artifactName = "NextStepAI-Voice-Setup-$version-${{ matrix.flavor }}-x64.exe"
+          "RELEASE_VERSION=$version" >> $env:GITHUB_ENV
+          "RELEASE_FLAVOR=${{ matrix.flavor }}" >> $env:GITHUB_ENV
+          "INSTALLER_NAME=$artifactName" >> $env:GITHUB_ENV
+
+      - name: Run production tests
+        run: npm run test:production
+
+      - name: Build application assets
+        run: npm run build
+
+      - name: Build native Windows helper
+        run: npm run build:native
+
+      - name: Build application icons
+        run: npm run build:icons
+
+      - name: Compress native libraries
+        run: npm run pre-release
+
+      - name: Package ${{ matrix.target }} installer
+        shell: pwsh
+        run: |
+          npx electron-builder --win nsis --x64 "--config.win.artifactName=$env:INSTALLER_NAME"
+          if ($LASTEXITCODE -ne 0) {
+            throw "electron-builder fallo para el target ${{ matrix.target }}."
+          }
+
+          $installer = Join-Path "release" $env:INSTALLER_NAME
+          if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) {
+            throw "No se genero el instalador esperado: $installer"
+          }
+
+          $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $env:INSTALLER_NAME" | Set-Content -LiteralPath "$installer.sha256" -Encoding ascii
+
+      - name: Upload ${{ matrix.target }} installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextstepai-voice-${{ matrix.target }}-windows-x64
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            release/NextStepAI-Voice-Setup-*-${{ matrix.flavor }}-x64.exe
+            release/NextStepAI-Voice-Setup-*-${{ matrix.flavor }}-x64.exe.blockmap
+            release/NextStepAI-Voice-Setup-*-${{ matrix.flavor }}-x64.exe.sha256
+            release/latest.yml

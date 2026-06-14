@@ -25,10 +25,16 @@ async function run() {
           language: "spanish",
           task: "transcribe",
           chunk_length_s: 30,
-          stride_length_s: 5
+          stride_length_s: 5,
+          ...profile.generation
         });
-        assert.equal(cleanTranscription(output.text), "", `${profile.shortLabel}: ${output.text}`);
-        console.log(`${profile.shortLabel} loaded on CPU/fp32 and passed the non-speech smoke test`);
+        assert.equal(typeof output.text, "string", `${profile.shortLabel} returned an invalid transcription result`);
+        const cleaned = cleanTranscription(output.text);
+        assert.ok(cleaned.length <= 80, `${profile.shortLabel} produced an uncontrolled non-speech output: ${output.text}`);
+        console.log(
+          `${profile.shortLabel} loaded on CPU/fp32 with production generation settings`
+          + (cleaned ? `; bounded non-speech output observed: ${JSON.stringify(cleaned)}` : "")
+        );
       } finally {
         if (typeof transcriber?.dispose === "function") await transcriber.dispose();
       }

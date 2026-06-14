@@ -3,10 +3,47 @@ using System.Text.Json;
 
 internal static class Program
 {
+    private const int HookKeyboardLowLevel = 13;
+    private const int MessageKeyDown = 0x0100;
+    private const int MessageKeyUp = 0x0101;
+    private const int MessageSystemKeyDown = 0x0104;
+    private const int MessageSystemKeyUp = 0x0105;
     private const uint InputKeyboard = 1;
     private const ushort KeyControl = 0x11;
     private const ushort KeyV = 0x56;
     private const uint KeyUp = 0x0002;
+    private static KeyboardHook? keyboardHook;
+    private static IntPtr keyboardHookHandle;
+    private static ushort monitoredKey;
+    private static bool requireControl;
+    private static bool requireShift;
+    private static bool requireAlt;
+    private static bool shortcutPressed;
+
+    private delegate IntPtr KeyboardHook(int code, IntPtr message, IntPtr data);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Message
+    {
+        public IntPtr window;
+        public uint message;
+        public UIntPtr wParam;
+        public IntPtr lParam;
+        public uint time;
+        public int pointX;
+        public int pointY;
+        public uint privateValue;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct LowLevelKeyboardInput
+    {
+        public uint virtualKey;
+        public uint scanCode;
+        public uint flags;
+        public uint time;
+        public IntPtr extraInfo;
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct Input
@@ -39,6 +76,12 @@ internal static class Program
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr window);
     [DllImport("user32.dll")] private static extern bool ShowWindowAsync(IntPtr window, int command);
     [DllImport("user32.dll", SetLastError = true)] private static extern uint SendInput(uint count, Input[] inputs, int size);
+    [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr SetWindowsHookEx(int hook, KeyboardHook callback, IntPtr module, uint threadId);
+    [DllImport("user32.dll")] private static extern IntPtr CallNextHookEx(IntPtr hook, int code, IntPtr message, IntPtr data);
+    [DllImport("user32.dll", SetLastError = true)] private static extern bool UnhookWindowsHookEx(IntPtr hook);
+    [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int virtualKey);
+    [DllImport("user32.dll")] private static extern int GetMessage(out Message message, IntPtr window, uint minimum, uint maximum);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr GetModuleHandle(string? moduleName);
 
     private static void Write(object value) => Console.WriteLine(JsonSerializer.Serialize(value));
 
@@ -101,6 +144,80 @@ internal static class Program
         return sent == (uint)inputs.Length ? 0 : 5;
     }
 
+    private static bool IsDown(int virtualKey) => (GetAsyncKeyState(virtualKey) & 0x8000) != 0;
+
+    private static ushort ResolveVirtualKey(string? keyName)
+    {
+        if (keyName?.Equals("Space", StringComparison.OrdinalIgnoreCase) == true) return 0x20;
+        if (keyName?.Length == 1 && char.IsAsciiLetterOrDigit(keyName[0])) return char.ToUpperInvariant(keyName[0]);
+        return 0;
+    }
+
+    private static IntPtr MonitorKeyboard(int code, IntPtr message, IntPtr data)
+    {
+        if (code >= 0)
+        {
+            var input = Marshal.PtrToStructure<LowLevelKeyboardInput>(data);
+            if (input.virtualKey == monitoredKey)
+            {
+                var value = message.ToInt32();
+                var isDown = value is MessageKeyDown or MessageSystemKeyDown;
+                var isUp = value is MessageKeyUp or MessageSystemKeyUp;
+                var modifiersMatch = IsDown(KeyControl) == requireControl
+                    && IsDown(0x10) == requireShift
+                    && IsDown(0x12) == requireAlt;
+
+                if (isDown && modifiersMatch && !shortcutPressed)
+                {
+                    shortcutPressed = true;
+                    Write(new { type = "pressed" });
+                }
+                else if (isUp && shortcutPressed)
+                {
+                    shortcutPressed = false;
+                    Write(new { type = "released" });
+                }
+            }
+        }
+        return CallNextHookEx(keyboardHookHandle, code, message, data);
+    }
+
+    private static int Monitor(string[] args)
+    {
+        var acceleratorArgument = Array.IndexOf(args, "--accelerator");
+        if (acceleratorArgument < 0 || acceleratorArgument + 1 >= args.Length) return 2;
+
+        var parts = args[acceleratorArgument + 1].Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var modifiers = new[] { "Control", "Ctrl", "CommandOrControl", "Shift", "Alt" };
+        requireControl = parts.Any(part => part.Equals("Control", StringComparison.OrdinalIgnoreCase)
+            || part.Equals("Ctrl", StringComparison.OrdinalIgnoreCase)
+            || part.Equals("CommandOrControl", StringComparison.OrdinalIgnoreCase));
+        requireShift = parts.Any(part => part.Equals("Shift", StringComparison.OrdinalIgnoreCase));
+        requireAlt = parts.Any(part => part.Equals("Alt", StringComparison.OrdinalIgnoreCase));
+        var keyName = parts.LastOrDefault(part => !modifiers.Contains(part, StringComparer.OrdinalIgnoreCase));
+        monitoredKey = ResolveVirtualKey(keyName);
+        if (monitoredKey == 0) return 2;
+
+        keyboardHook = MonitorKeyboard;
+        keyboardHookHandle = SetWindowsHookEx(HookKeyboardLowLevel, keyboardHook, GetModuleHandle(null), 0);
+        if (keyboardHookHandle == IntPtr.Zero)
+        {
+            Write(new { type = "error", error = Marshal.GetLastWin32Error() });
+            return 3;
+        }
+
+        Write(new { type = "ready" });
+        try
+        {
+            while (GetMessage(out _, IntPtr.Zero, 0, 0) > 0) { }
+        }
+        finally
+        {
+            UnhookWindowsHookEx(keyboardHookHandle);
+        }
+        return 0;
+    }
+
     private static Input Key(ushort key, uint flags) => new()
     {
         type = InputKeyboard,
@@ -115,6 +232,7 @@ internal static class Program
             {
                 "capture" => Capture(),
                 "paste" => Paste(args),
+                "monitor-shortcut" => Monitor(args),
                 _ => 2
             };
         }

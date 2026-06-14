@@ -1,16 +1,19 @@
 const { app, BrowserWindow, clipboard, dialog, globalShortcut, ipcMain, Menu, nativeImage, session, screen, shell, Tray } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const fs = require("fs/promises");
+const fsSync = require("fs");
 const path = require("path");
-const { execFile } = require("child_process");
+const { execFile, spawn } = require("child_process");
 const {
   DEFAULT_SHORTCUTS,
   getAutoStartEnabled,
   getCloseBehavior,
+  getShortcutMode,
   getShortcuts,
   hasAutoStartPreference,
   setAutoStartEnabled,
   setCloseBehavior,
+  setShortcutMode,
   setShortcuts
 } = require("./app-preferences.cjs");
 const { resolveWhisperProfile } = require("./whisper-profiles.cjs");
@@ -38,6 +41,13 @@ let isQuitting = false;
 let closeDialogOpen = false;
 let manualUpdateCheck = false;
 let activeShortcuts;
+let activeShortcutMode = "toggle";
+let shortcutMonitor;
+let shortcutMonitorBuffer = "";
+let requestedTaskbarState = "idle";
+let modelDownloadActive = false;
+let taskbarPulseTimer;
+let taskbarIcons;
 let lastModelLoadMs;
 let lastTranscriptionMetrics;
 let lastDeviceFallback;
@@ -61,6 +71,116 @@ function sendToMainWindow(channel, ...args) {
   const send = () => mainWindow?.webContents.send(channel, ...args);
   if (mainWindow.webContents.isLoading()) mainWindow.webContents.once("did-finish-load", send);
   else send();
+}
+
+function createTaskbarBadge(draw) {
+  const size = 16;
+  const bitmap = Buffer.alloc(size * size * 4);
+  const setPixel = (x, y, red, green, blue, alpha = 255) => {
+    if (x < 0 || x >= size || y < 0 || y >= size) return;
+    const offset = (y * size + x) * 4;
+    bitmap[offset] = blue;
+    bitmap[offset + 1] = green;
+    bitmap[offset + 2] = red;
+    bitmap[offset + 3] = alpha;
+  };
+  const circle = (centerX, centerY, radius, color) => {
+    for (let y = 0; y < size; y += 1) {
+      for (let x = 0; x < size; x += 1) {
+        if ((x - centerX) ** 2 + (y - centerY) ** 2 <= radius ** 2) setPixel(x, y, ...color);
+      }
+    }
+  };
+  draw({ circle, setPixel });
+  return nativeImage.createFromBitmap(bitmap, { width: size, height: size, scaleFactor: 1 });
+}
+
+function getTaskbarIcons() {
+  if (taskbarIcons) return taskbarIcons;
+  taskbarIcons = {
+    downloading: createTaskbarBadge(({ circle, setPixel }) => {
+      circle(8, 8, 7, [245, 183, 44, 255]);
+      for (let y = 3; y <= 9; y += 1) {
+        setPixel(7, y, 45, 52, 59);
+        setPixel(8, y, 45, 52, 59);
+      }
+      for (let offset = 0; offset <= 3; offset += 1) {
+        setPixel(8 - offset, 9 + offset, 45, 52, 59);
+        setPixel(8 + offset, 9 + offset, 45, 52, 59);
+      }
+    }),
+    recording: createTaskbarBadge(({ circle }) => {
+      circle(8, 8, 7, [255, 255, 255, 255]);
+      circle(8, 8, 5, [235, 48, 63, 255]);
+    }),
+    processing: createTaskbarBadge(({ circle, setPixel }) => {
+      circle(8, 8, 7, [42, 126, 211, 255]);
+      circle(8, 8, 3, [244, 248, 252, 255]);
+      circle(8, 8, 1, [42, 126, 211, 255]);
+      for (const [x, y] of [[8, 1], [8, 15], [1, 8], [15, 8], [3, 3], [13, 3], [3, 13], [13, 13]]) {
+        setPixel(x, y, 244, 248, 252);
+      }
+    })
+  };
+  return taskbarIcons;
+}
+
+function clearTaskbarPulse() {
+  clearInterval(taskbarPulseTimer);
+  taskbarPulseTimer = undefined;
+}
+
+function applyTaskbarState() {
+  if (process.platform !== "win32" || !mainWindow || mainWindow.isDestroyed()) return;
+  const state = modelDownloadActive ? "downloading" : requestedTaskbarState;
+  clearTaskbarPulse();
+  try {
+    if (state === "downloading") {
+      mainWindow.setOverlayIcon(getTaskbarIcons().downloading, "Descargando modelo de Whisper");
+      mainWindow.setProgressBar(0.5);
+      let visible = true;
+      taskbarPulseTimer = setInterval(() => {
+        if (!mainWindow || mainWindow.isDestroyed()) return clearTaskbarPulse();
+        try {
+          visible = !visible;
+          mainWindow.setProgressBar(visible ? 0.5 : -1);
+        } catch (error) {
+          clearTaskbarPulse();
+          console.error("Could not pulse Windows taskbar progress:", error);
+        }
+      }, 650);
+      taskbarPulseTimer.unref?.();
+      return;
+    }
+    if (state === "recording") {
+      mainWindow.setOverlayIcon(getTaskbarIcons().recording, "Grabando audio");
+      mainWindow.setProgressBar(-1);
+      return;
+    }
+    if (state === "processing") {
+      mainWindow.setOverlayIcon(getTaskbarIcons().processing, "Procesando inferencia de Whisper");
+      mainWindow.setProgressBar(2);
+      return;
+    }
+    mainWindow.setProgressBar(-1);
+    mainWindow.setOverlayIcon(null, "");
+  } catch (error) {
+    console.error("Could not update Windows taskbar state:", error);
+  }
+}
+
+function setRequestedTaskbarState(state) {
+  const nextState = ["idle", "recording", "processing"].includes(state) ? state : "idle";
+  if (requestedTaskbarState === nextState) return;
+  requestedTaskbarState = nextState;
+  applyTaskbarState();
+}
+
+function setModelDownloadActive(active) {
+  const nextActive = Boolean(active);
+  if (modelDownloadActive === nextActive) return;
+  modelDownloadActive = nextActive;
+  applyTaskbarState();
 }
 
 function showMainWindow(panel) {
@@ -109,6 +229,19 @@ async function handleRecordShortcut() {
   sendToMainWindow("shortcut:toggle");
 }
 
+function handleHoldShortcutPressed() {
+  if (shortcutRecording) return;
+  shortcutRecording = true;
+  capturePasteTarget().catch((error) => console.error("Could not capture paste target:", error));
+  sendToMainWindow("shortcut:pressed");
+}
+
+function handleHoldShortcutReleased() {
+  if (!shortcutRecording) return;
+  shortcutRecording = false;
+  sendToMainWindow("shortcut:released");
+}
+
 async function handleReprocessShortcut() {
   try {
     await capturePasteTarget();
@@ -118,17 +251,78 @@ async function handleReprocessShortcut() {
   sendToMainWindow("shortcut:reprocess");
 }
 
-function registerGlobalShortcuts(shortcuts) {
+function stopShortcutMonitor() {
+  const monitor = shortcutMonitor;
+  shortcutMonitor = undefined;
+  shortcutMonitorBuffer = "";
+  if (monitor && !monitor.killed) monitor.kill();
+  if (monitor || activeShortcutMode === "hold") handleHoldShortcutReleased();
+}
+
+function startShortcutMonitor(accelerator) {
+  if (process.platform !== "win32") throw new Error("El modo mantener solo esta disponible en Windows.");
+  const helper = pasteHelperPath();
+  if (!fsSync.existsSync(helper)) throw new Error("Falta el helper nativo requerido para el modo mantener.");
+
+  const monitor = spawn(helper, ["monitor-shortcut", "--accelerator", accelerator], {
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  shortcutMonitor = monitor;
+  monitor.stdout.setEncoding("utf8");
+  monitor.stdout.on("data", (chunk) => {
+    shortcutMonitorBuffer += chunk;
+    const lines = shortcutMonitorBuffer.split(/\r?\n/);
+    shortcutMonitorBuffer = lines.pop() || "";
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const event = JSON.parse(line);
+        if (event.type === "pressed") handleHoldShortcutPressed();
+        if (event.type === "released") handleHoldShortcutReleased();
+        if (event.type === "error") console.error("Shortcut monitor hook error:", event.error);
+      } catch (error) {
+        console.error("Invalid shortcut monitor event:", error);
+      }
+    }
+  });
+  monitor.stderr.on("data", (chunk) => console.error("Shortcut monitor:", chunk.toString().trim()));
+  monitor.on("error", (error) => {
+    if (shortcutMonitor !== monitor) return;
+    shortcutMonitor = undefined;
+    handleHoldShortcutReleased();
+    console.error("Shortcut monitor failed:", error);
+    sendToMainWindow("shortcut:error");
+  });
+  monitor.on("exit", (code) => {
+    if (shortcutMonitor !== monitor) return;
+    shortcutMonitor = undefined;
+    handleHoldShortcutReleased();
+    console.error(`Shortcut monitor exited unexpectedly with code ${code}.`);
+    sendToMainWindow("shortcut:error");
+  });
+}
+
+function registerGlobalShortcuts(shortcuts, mode = activeShortcutMode) {
   if (!shortcuts || shortcuts.record === shortcuts.reprocess) {
     throw new Error("Los atajos deben ser diferentes.");
   }
 
+  if (!["toggle", "hold"].includes(mode)) throw new Error(`Unsupported shortcut mode: ${mode}`);
+
   const previous = activeShortcuts;
+  const previousMode = activeShortcutMode;
+  stopShortcutMonitor();
   globalShortcut.unregisterAll();
   let recordRegistered = false;
   let reprocessRegistered = false;
   try {
-    recordRegistered = globalShortcut.register(shortcuts.record, handleRecordShortcut);
+    if (mode === "hold") {
+      startShortcutMonitor(shortcuts.record);
+      recordRegistered = true;
+    } else {
+      recordRegistered = globalShortcut.register(shortcuts.record, handleRecordShortcut);
+    }
     reprocessRegistered = recordRegistered && globalShortcut.register(shortcuts.reprocess, handleReprocessShortcut);
   } catch (error) {
     console.error("Invalid global shortcut:", error);
@@ -136,14 +330,18 @@ function registerGlobalShortcuts(shortcuts) {
 
   if (recordRegistered && reprocessRegistered) {
     activeShortcuts = { ...shortcuts };
+    activeShortcutMode = mode;
     return activeShortcuts;
   }
 
+  stopShortcutMonitor();
   globalShortcut.unregisterAll();
   if (previous) {
-    globalShortcut.register(previous.record, handleRecordShortcut);
+    if (previousMode === "hold") startShortcutMonitor(previous.record);
+    else globalShortcut.register(previous.record, handleRecordShortcut);
     globalShortcut.register(previous.reprocess, handleReprocessShortcut);
     activeShortcuts = previous;
+    activeShortcutMode = previousMode;
   }
   throw new Error("Windows rechazó uno de los atajos. Puede estar en uso por otra aplicación.");
 }
@@ -310,6 +508,8 @@ async function getTranscriber(profileId, requestedDevice = "cpu") {
     const pipelineOptions = {
       dtype: profile.dtype,
       progress_callback: (progress) => {
+        if (["initiate", "download", "progress"].includes(progress.status)) setModelDownloadActive(true);
+        if (progress.status === "ready") setModelDownloadActive(false);
         if (!mainWindow || mainWindow.isDestroyed()) return;
         mainWindow.webContents.send("model:progress", {
           profile: profile.id,
@@ -354,6 +554,7 @@ async function getTranscriber(profileId, requestedDevice = "cpu") {
     transcriberRequestedDevice = undefined;
     throw error;
   } finally {
+    setModelDownloadActive(false);
     transcriberPromise = undefined;
     loadingProfile = undefined;
     loadingDevice = undefined;
@@ -395,8 +596,10 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, "..", "index.html"));
+  applyTaskbarState();
   mainWindow.on("close", handleWindowClose);
   mainWindow.on("closed", () => {
+    clearTaskbarPulse();
     mainWindow = null;
     if (overlayWindow && !overlayWindow.isDestroyed()) overlayWindow.close();
   });
@@ -587,12 +790,13 @@ app.whenReady().then(async () => {
   checkForUpdates();
 
   try {
-    registerGlobalShortcuts(getShortcuts(app.getPath("userData")));
+    registerGlobalShortcuts(getShortcuts(app.getPath("userData")), getShortcutMode(app.getPath("userData")));
   } catch (error) {
     console.error("Could not register global shortcuts:", error);
     try {
       registerGlobalShortcuts(DEFAULT_SHORTCUTS);
       setShortcuts(app.getPath("userData"), DEFAULT_SHORTCUTS);
+      setShortcutMode(app.getPath("userData"), "toggle");
     } catch (fallbackError) {
       console.error("Could not register default global shortcuts:", fallbackError);
     }
@@ -673,7 +877,11 @@ ipcMain.handle("models:clear", async () => {
 
 ipcMain.handle("overlay:set-state", (_event, state) => {
   updateOverlay(state);
-  if (state.status === "idle") shortcutRecording = false;
+  if (state.status === "idle" && activeShortcutMode === "toggle") shortcutRecording = false;
+  return true;
+});
+ipcMain.handle("taskbar:set-state", (_event, state) => {
+  setRequestedTaskbarState(state?.status);
   return true;
 });
 
@@ -688,6 +896,7 @@ ipcMain.handle("app:diagnostics", async () => {
     requestedInferenceDevice: transcriberRequestedDevice || loadingDevice || "none",
     lastDeviceFallback,
     shortcuts: activeShortcuts || getShortcuts(app.getPath("userData")),
+    shortcutMode: activeShortcutMode,
     memoryRssMb: Math.round(memory.rss / 1024 / 1024),
     heapUsedMb: Math.round(memory.heapUsed / 1024 / 1024),
     lastModelLoadMs,
@@ -702,9 +911,21 @@ ipcMain.handle("app:get-close-behavior", () => getCloseBehavior(app.getPath("use
 ipcMain.handle("app:set-close-behavior", (_event, behavior) => setCloseBehavior(app.getPath("userData"), behavior));
 ipcMain.handle("preferences:get-shortcuts", () => activeShortcuts || getShortcuts(app.getPath("userData")));
 ipcMain.handle("preferences:set-shortcuts", (_event, shortcuts) => {
-  const registered = registerGlobalShortcuts(shortcuts);
+  const registered = registerGlobalShortcuts(shortcuts, activeShortcutMode);
   setShortcuts(app.getPath("userData"), registered);
   return registered;
+});
+ipcMain.handle("preferences:get-shortcut-mode", () => activeShortcutMode);
+ipcMain.handle("preferences:set-shortcut-mode", (_event, mode) => {
+  const shortcuts = activeShortcuts || getShortcuts(app.getPath("userData"));
+  const previousMode = activeShortcutMode;
+  registerGlobalShortcuts(shortcuts, mode);
+  try {
+    return setShortcutMode(app.getPath("userData"), mode);
+  } catch (error) {
+    registerGlobalShortcuts(shortcuts, previousMode);
+    throw error;
+  }
 });
 ipcMain.handle("preferences:get-autostart", () => {
   if (process.platform !== "win32" || !app.isPackaged) return false;
@@ -730,7 +951,11 @@ app.on("activate", () => {
 app.on("before-quit", () => {
   isQuitting = true;
 });
-app.on("will-quit", () => globalShortcut.unregisterAll());
+app.on("will-quit", () => {
+  clearTaskbarPulse();
+  stopShortcutMonitor();
+  globalShortcut.unregisterAll();
+});
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin" && isQuitting) app.quit();

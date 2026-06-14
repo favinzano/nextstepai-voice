@@ -171,6 +171,7 @@ try {
     Invoke-NativeCommand -FilePath "npm.cmd" -ArgumentList @("run", "build")
     Invoke-NativeCommand -FilePath "npm.cmd" -ArgumentList @("run", "build:native")
     Invoke-NativeCommand -FilePath "npm.cmd" -ArgumentList @("run", "build:icons")
+    Invoke-NativeCommand -FilePath "npm.cmd" -ArgumentList @("run", "pre-release")
 
     # Electron Builder invokes SignTool before update metadata is created.
     # These options produce /fd sha256 plus RFC 3161 /tr and /td sha256.

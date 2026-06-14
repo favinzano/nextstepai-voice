@@ -8,6 +8,7 @@
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
     <AssemblyName>NextStepAI.PasteHelper</AssemblyName>
   </PropertyGroup>
 </Project>
