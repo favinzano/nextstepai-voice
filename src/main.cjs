@@ -337,11 +337,15 @@ function registerGlobalShortcuts(shortcuts, mode = activeShortcutMode) {
   stopShortcutMonitor();
   globalShortcut.unregisterAll();
   if (previous) {
-    if (previousMode === "hold") startShortcutMonitor(previous.record);
-    else globalShortcut.register(previous.record, handleRecordShortcut);
-    globalShortcut.register(previous.reprocess, handleReprocessShortcut);
-    activeShortcuts = previous;
-    activeShortcutMode = previousMode;
+    try {
+      if (previousMode === "hold") startShortcutMonitor(previous.record);
+      else globalShortcut.register(previous.record, handleRecordShortcut);
+      globalShortcut.register(previous.reprocess, handleReprocessShortcut);
+      activeShortcuts = previous;
+      activeShortcutMode = previousMode;
+    } catch (restoreError) {
+      console.error("Failed to restore previous shortcuts:", restoreError);
+    }
   }
   throw new Error("Windows rechazó uno de los atajos. Puede estar en uso por otra aplicación.");
 }
@@ -669,7 +673,7 @@ function runPasteHelper(args) {
       } catch {
         result = { ok: false, error: error?.message || "invalid_helper_response" };
       }
-      if (error || !result.ok) reject(new Error(result.error || error.message));
+      if (error || !result.ok) reject(new Error(result.error || error?.message || "invalid_helper_response"));
       else resolve(result);
     });
   });

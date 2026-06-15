@@ -166,7 +166,7 @@ function ensureTerminalPunctuation(text) {
 function applyDictionary(text, dictionary) {
   return dictionary.reduce((result, term) => {
     const escaped = escapeRegExp(term);
-    return result.replace(new RegExp(`\\b${escaped}\\b`, "giu"), term);
+    return result.replace(new RegExp(`(?<![\\p{L}\\p{N}_])${escaped}(?![\\p{L}\\p{N}_])`, "giu"), term);
   }, text);
 }
 

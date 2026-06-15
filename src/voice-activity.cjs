@@ -18,7 +18,10 @@ function createVoiceActivityDetector(options = {}) {
         return false;
       }
       if (!speechDetected) noiseFloor = noiseFloor * 0.9 + rms * 0.1;
-      if (!speechDetected || rms > silenceThreshold) return false;
+      if (!speechDetected || rms > silenceThreshold) {
+        silenceStartedAt = undefined;
+        return false;
+      }
       silenceStartedAt ??= now;
       if (now - silenceStartedAt < silenceTimeoutMs) return false;
       stopped = true;
