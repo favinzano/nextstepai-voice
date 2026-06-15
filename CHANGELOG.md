@@ -1,4 +1,8 @@
-﻿# Changelog
+﻿## - 2026-06-14
+
+- **Added:** New native Windows Taskbar status overlays and binary badge tracking for downloading, recording, and inference states. Dual-mode hotkey settings layout supporting toggle and low-level "Push-to-Talk" hardware events.
+- **Optimized (DevOps Overhaul):** Matrix compilation build pipeline splits inside GitHub Actions for `Legacy` vs `AVX2` binaries. Integrated pre-release native DLL extraction compression routines using UPX binary stripping tools.
+# Changelog
 
 Todos los cambios relevantes de NextStepAI Voice se documentan en este archivo.
 
