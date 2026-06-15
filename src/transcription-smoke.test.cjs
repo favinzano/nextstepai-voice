@@ -20,6 +20,26 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+const MODEL_LOCK_ERROR_PATTERN = /system error number 13/i;
+const MODEL_LOCK_MAX_ATTEMPTS = 5;
+const MODEL_LOCK_RETRY_DELAY_MS = 3000;
+
+// Windows antivirus/Defender can briefly lock freshly downloaded .onnx files,
+// causing onnxruntime-node to fail with "system error number 13" even though
+// the download itself succeeded. Retry the load in place before falling back
+// to a full re-download attempt.
+async function loadPipelineWithRetry(pipeline, model, options) {
+  for (let attempt = 1; attempt <= MODEL_LOCK_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await pipeline("automatic-speech-recognition", model, options);
+    } catch (error) {
+      if (attempt === MODEL_LOCK_MAX_ATTEMPTS || !MODEL_LOCK_ERROR_PATTERN.test(String(error?.message ?? error))) throw error;
+      console.warn(`Carga del modelo bloqueada (system error number 13), reintento ${attempt}/${MODEL_LOCK_MAX_ATTEMPTS} en ${MODEL_LOCK_RETRY_DELAY_MS}ms`);
+      await delay(MODEL_LOCK_RETRY_DELAY_MS);
+    }
+  }
+}
+
 async function attemptSmokeTest() {
   const cacheDir = await createIsolatedModelCache("nextstepai-transcription-smoke-");
   const { pipeline, env } = await import("@huggingface/transformers");
@@ -30,7 +50,7 @@ async function attemptSmokeTest() {
   const profile = resolveWhisperProfile("fast");
   let transcriber;
   try {
-    transcriber = await pipeline("automatic-speech-recognition", profile.model, {
+    transcriber = await loadPipelineWithRetry(pipeline, profile.model, {
       device: "cpu",
       dtype: "fp32"
     });
