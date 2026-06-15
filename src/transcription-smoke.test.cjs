@@ -8,10 +8,12 @@ const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 15000;
 // CI runners occasionally hit transient Hugging Face / filesystem errors while
 // downloading the model (rate limiting, connect timeouts, antivirus file locks).
-const TRANSIENT_ERROR_PATTERN = /\b429\b|ETIMEDOUT|ECONNRESET|ECONNREFUSED|UND_ERR_CONNECT_TIMEOUT|fetch failed|system error number 13/i;
+const TRANSIENT_ERROR_PATTERN = /\b429\b|ETIMEDOUT|ECONNRESET|ECONNREFUSED|UND_ERR_CONNECT_TIMEOUT|fetch failed|terminated|system error number 13/i;
 
 function isTransientError(error) {
-  return TRANSIENT_ERROR_PATTERN.test(String(error?.message ?? error));
+  if (TRANSIENT_ERROR_PATTERN.test(String(error?.message ?? error))) return true;
+  if (error?.cause) return isTransientError(error.cause);
+  return false;
 }
 
 function delay(ms) {
