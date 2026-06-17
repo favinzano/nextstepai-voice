@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const { cleanTranscription } = require("./text-cleanup.cjs");
-const { createIsolatedModelCache, verifyModelDownloads } = require("./model-smoke-utils.cjs");
+const { createIsolatedModelCache, verifyModelDownloads, loadPipelineWithRetry } = require("./model-smoke-utils.cjs");
 const { WHISPER_PROFILES } = require("./whisper-profiles.cjs");
 
 async function run() {
@@ -15,7 +15,7 @@ async function run() {
     for (const profile of Object.values(WHISPER_PROFILES)) {
       let transcriber;
       try {
-        transcriber = await pipeline("automatic-speech-recognition", profile.model, {
+        transcriber = await loadPipelineWithRetry(pipeline, "automatic-speech-recognition", profile.model, {
           device: "cpu",
           dtype: "fp32"
         });
